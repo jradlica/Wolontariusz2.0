@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/x-icon" href="pepe.ico">
+    <title>W 2.0 - rejestracja</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            max-width: 1000px;
+            margin: 0 auto;
+            color: #333;
+        }
+
+        .container {
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: #2c3e50;
+            margin-top: 0;
+        }
+
+        .file-input {
+            margin-bottom: 20px;
+        }
+
+        .search-container {
+            margin-bottom: 20px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+
+        .results {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            background-color: white;
+        }
+
+        .result-item {
+            padding: 8px;
+            border-bottom: 1px solid #eee;
+            transition: background-color 0.2s;
+        }
+
+        .result-item:last-child {
+            border-bottom: none;
+        }
+
+        .result-item:hover {
+            background-color: #f0f7ff;
+        }
+
+        .highlight {
+            background-color: #ffe066;
+            font-weight: bold;
+        }
+
+        .selected {
+            background-color: #e3f2fd;
+        }
+
+        .status {
+            font-size: 14px;
+            color: #666;
+            margin-top: 10px;
+        }
+
+        .no-results {
+            padding: 15px;
+            text-align: center;
+            color: #666;
+        }
+
+        kbd {
+            background-color: #f7f7f7;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2);
+            color: #333;
+            display: inline-block;
+            font-size: 0.85em;
+            font-family: Monaco, 'Courier New', monospace;
+            padding: 2px 4px;
+            white-space: nowrap;
+        }
+
+        .keyboard-shortcuts {
+            margin-top: 20px;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .result-item .match-info {
+            font-size: 0.8em;
+            color: #666;
+            margin-top: 4px;
+        }
+
+        .toast {
+            visibility: hidden;
+            max-width: 300px;
+            margin: 0 auto;
+            background-color: #333;
+            color: #fff;
+            text-align: center;
+            border-radius: 5px;
+            padding: 10px;
+            position: fixed;
+            z-index: 1;
+            left: 50%;
+            bottom: 30px;
+            transform: translateX(-50%);
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+
+        .toast.show {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        .toast.success {
+            background-color: #4CAF50; /* Green background for success */
+        }
+
+        .toast.error {
+            background-color: #F44336; /* Red background for error */
+        }
+
+        .volunteer-id-input {
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+        }
+
+        .volunteer-id-input label {
+            margin-right: 10px;
+            margin-bottom: 0;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+
+        .volunteer-id-input input {
+            width: 200px; /* Reduced width */
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+
+        /* Improved filter option styling */
+        .filter-option {
+            margin-bottom: 20px;
+        }
+
+        .filter-checkbox {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px; /* Add spacing between checkbox and count */
+        }
+
+        .filter-checkbox label {
+            margin-left: 8px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .filter-option input[type="checkbox"] {
+            cursor: pointer;
+        }
+
+        .entries-count {
+            margin-top: 5px;
+            font-size: 14px;
+            color: #666;
+        }
+
+        /* Collapsible details styling */
+        details {
+            margin-bottom: 20px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #f5f5f5;
+        }
+
+        summary {
+            padding: 12px 15px;
+            cursor: pointer;
+            font-weight: bold;
+            background-color: #e9e9e9;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+        }
+
+        summary:hover {
+            background-color: #e0e0e0;
+        }
+
+        .details-content {
+            padding: 15px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Rejestracja</h1>
+
+    <!-- Collapsible section for volunteer ID and file input -->
+    <details id="setupDetails" open>
+        <summary>Ustawienia</summary>
+        <div class="details-content">
+            <!-- Volunteer ID Input -->
+            <div class="volunteer-id-input">
+                <label for="volunteerID">Wolontariusz ID:</label>
+                <input type="text" id="volunteerID" name="volunteerID" required>
+            </div>
+
+            <div class="file-input">
+                <input type="file" id="csv-file" accept=".csv">
+                <p class="status" id="file-status">Nie wybrano pliku</p>
+            </div>
+        </div>
+    </details>
+
+    <!-- Add filter option with improved spacing -->
+    <div class="filter-option">
+        <div class="filter-checkbox">
+            <input type="checkbox" id="filterRegistered">
+            <label for="filterRegistered">Uwzględniaj zarejestrowanych</label>
+        </div>
+        <p class="entries-count" id="registeredCount">Zarejestrowanych uczestników: 0</p>
+    </div>
+
+    <div class="search-container">
+        <input type="text" id="search" class="search-input" placeholder="Wpisz, aby wyszukać..." autocomplete="off"
+               disabled>
+        <p class="status" id="search-status">Wybierz plik CSV żeby rozpocząć wyszukiwanie</p>
+    </div>
+
+    <div class="results" id="results">
+        <div class="no-results">Tutaj pojawią się rezultaty</div>
+    </div>
+
+    <div class="keyboard-shortcuts">
+        <p><strong>Skróty klawiszowe:</strong></p>
+        <p><kbd>↑</kbd> / <kbd>↓</kbd> - Nawigacja po wynikach wyszukiwania</p>
+        <p><kbd>Enter</kbd> - Zatwierdzenie zaznaczonego elementu</p>
+        <p><kbd>Esc</kbd> - Reset wyników wyszukiwania</p>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast">
+        <span id="toast-message"></span>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/fuse.js/6.6.2/fuse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+
+<script>
+    // DOM elements
+    const fileInput = document.getElementById('csv-file');
+    const fileStatus = document.getElementById('file-status');
+    const searchInput = document.getElementById('search');
+    const searchStatus = document.getElementById('search-status');
+    const resultsContainer = document.getElementById('results');
+    const volunteerIDInput = document.getElementById('volunteerID');
+    const filterRegisteredCheckbox = document.getElementById('filterRegistered');
+    const registeredCountElement = document.getElementById('registeredCount');
+    const setupDetails = document.getElementById('setupDetails');
+
+    // State
+    let data = [];
+    let normalizedData = []; // Store normalized versions for searching
+    let registeredEntries = [];
+    let registeredHashes = new Set();
+    let fuse = null;
+    let selectedIndex = -1;
+    let filteredResults = [];
+
+    // Polish character normalization mapping
+    const polishCharMap = {
+        'ą': 'a', 'ć': 'c', 'ę': 'e', 'ł': 'l', 'ń': 'n', 'ó': 'o', 'ś': 's', 'ź': 'z', 'ż': 'z',
+        'Ą': 'A', 'Ć': 'C', 'Ę': 'E', 'Ł': 'L', 'Ń': 'N', 'Ó': 'O', 'Ś': 'S', 'Ź': 'Z', 'Ż': 'Z'
+    };
+
+    // Function to normalize Polish characters
+    function normalizePolishChars(text) {
+        return text.replace(/[ąćęłńóśźżĄĆĘŁŃÓŚŹŻ]/g, char => polishCharMap[char] || char);
+    }
+
+    // Initialize Fuse.js with options
+    function initFuse(items) {
+        return new Fuse(items, {
+            includeScore: true,
+            threshold: 0.4,
+            ignoreLocation: true,
+            keys: ['normalizedValue'],
+            useExtendedSearch: true
+        });
+    }
+
+    // Parse CSV file
+    function parseCSV(text) {
+        const lines = text.split(/\r\n|\n/).filter(line => line.trim());
+        const parsedData = lines.map(line => {
+            const value = line.trim();
+            const normalizedValue = normalizePolishChars(value);
+            return {
+                value,
+                normalizedValue
+            };
+        });
+        return parsedData;
+    }
+
+    // Additional function to reopen details if needed
+    function reopenSetupIfNeeded() {
+        const volunteerIDValue = volunteerIDInput.value.trim();
+        const fileSelected = fileInput.files.length > 0;
+
+        // If either value is missing, ensure details are open
+        if (volunteerIDValue === '' || !fileSelected) {
+            setupDetails.open = true;
+        }
+    }
+
+    // Fetch registered entries from server
+    async function fetchRegisteredEntries() {
+        try {
+            const response = await fetch('/entries');
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            const data = await response.json();
+            registeredEntries = data.entries;
+            registeredHashes = new Set(registeredEntries.map(entry => entry.entry));
+            registeredCountElement.textContent = `Zarejestrowanych uczestników: ${registeredEntries.length}`;
+
+            // If the search input has a value, reapply the search to update results
+            if (searchInput.value.trim()) {
+                performSearch(searchInput.value.trim());
+            } else if (data.length > 0) {
+                // Otherwise just update the display to show filtered or all results
+                displayFilteredResults();
+            }
+
+            return registeredEntries;
+        } catch (error) {
+            console.error('Error fetching entries:', error);
+            showToast('Błąd podczas pobierania zarejestrowanych uczestników', 'error');
+            return [];
+        }
+    }
+
+    // Filter data based on registered entries
+    function getFilteredData() {
+        if (!filterRegisteredCheckbox.checked && registeredHashes.size > 0) {
+            // Create a list of all CSV entries that haven't been registered yet
+            return data.filter(item => !isItemRegistered(item));
+        }
+        return data;
+    }
+
+    function isItemRegistered(item) {
+        return registeredHashes.has(hashCache.get(item.value));
+    }
+
+    // Handle file upload
+    fileInput.addEventListener('change', function (e) {
+        const file = e.target.files[0];
+        if (!file) {
+            fileStatus.textContent = 'No file selected';
+            return;
+        }
+
+        fileStatus.textContent = `Loading: ${file.name}`;
+
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            try {
+                data = parseCSV(e.target.result);
+
+                // Prepare hash cache for faster comparison
+                prepareHashCache(data);
+
+                // Initialize Fuse with all data initially
+                fuse = initFuse(data);
+
+                fileStatus.textContent = `Załadowano ${data.length} uczestników z ${file.name}`;
+
+                // Update display based on filter setting
+                displayFilteredResults();
+
+                checkVolunteerID();
+            } catch (error) {
+                fileStatus.textContent = `Error: ${error.message}`;
+                console.error(error);
+            }
+        };
+
+        reader.onerror = function () {
+            fileStatus.textContent = 'Error reading file';
+        };
+
+        reader.readAsText(file);
+    });
+
+    // Cache for storing pre-computed hashes
+    const hashCache = new Map();
+
+    // Prepare hashes for all data items to avoid recalculating
+    async function prepareHashCache(items) {
+        for (const item of items) {
+            if (!hashCache.has(item.value)) {
+                const hash = hashValue(item.value);
+                hashCache.set(item.value, hash);
+            }
+        }
+    }
+
+    // Display filtered results based on checkbox state
+    function displayFilteredResults() {
+        const filteredData = getFilteredData();
+        displayResults(filteredData);
+
+        const filterText = !filterRegisteredCheckbox.checked ?
+            " (bez zarejestrowanych)" : "";
+
+        searchStatus.textContent = `${filteredData.length} uczestników załadowanych${filterText}.`;
+    }
+
+    // Filter checkbox event listener
+    filterRegisteredCheckbox.addEventListener('change', function() {
+        // Re-apply current search or show all items with filter
+        if (searchInput.value.trim()) {
+            performSearch(searchInput.value.trim());
+        } else {
+            displayFilteredResults();
+        }
+    });
+
+    // Search functionality
+    searchInput.addEventListener('input', function () {
+        const query = this.value.trim();
+
+        if (!query) {
+            displayFilteredResults();
+            return;
+        }
+
+        performSearch(query);
+    });
+
+    function checkVolunteerID() {
+        const hasVolunteerID = volunteerIDInput.value.trim() !== '';
+
+        if (data.length > 0) { // Only enable if we have data loaded
+            searchInput.disabled = !hasVolunteerID;
+
+            if (!hasVolunteerID) {
+                searchStatus.textContent = 'Wprowadź ID wolontariusza aby rozpocząć wyszukiwanie';
+                // Clear search results if volunteer ID is removed after searching
+                if (searchInput.value) {
+                    clearSearch();
+                }
+                // Ensure setup details are open if volunteerID is missing
+                reopenSetupIfNeeded();
+            } else {
+                const filteredData = getFilteredData();
+                const filterText = !filterRegisteredCheckbox.checked ?
+                    " (bez zarejestrowanych)" : "";
+                searchStatus.textContent = `${filteredData.length} uczestników załadowanych${filterText}.`;
+            }
+        }
+    }
+
+    volunteerIDInput.addEventListener('input', checkVolunteerID);
+    volunteerIDInput.addEventListener('change', checkVolunteerID);
+
+    function performSearch(query) {
+        // Get filtered data based on checkbox state
+        const searchData = getFilteredData();
+
+        // Create a new Fuse instance with the filtered data
+        const searchFuse = initFuse(searchData);
+
+        // Normalize the query for consistency
+        const normalizedQuery = normalizePolishChars(query);
+
+        // Combine results from different search methods
+        let results = [];
+        let usedIndices = new Set();
+        let matchDetails = new Map(); // To store how each item matched
+
+        // 1. Letter sequence search
+        const sequenceResults = searchByLetterSequence(normalizedQuery, searchData);
+        sequenceResults.forEach(({item, positions}) => {
+            results.push(item);
+            usedIndices.add(searchData.indexOf(item));
+            matchDetails.set(item, {
+                type: 'sequence',
+                positions: positions
+            });
+        });
+
+        // 2. Standard fuzzy search
+        const fuzzyResults = searchFuse.search(normalizedQuery);
+
+        fuzzyResults.forEach(result => {
+            if (!usedIndices.has(searchData.indexOf(result.item))) {
+                results.push(result.item);
+                usedIndices.add(searchData.indexOf(result.item));
+                matchDetails.set(result.item, {
+                    type: 'fuzzy',
+                    score: result.score
+                });
+            }
+        });
+
+        filteredResults = results;
+
+        displayResults(filteredResults, query, matchDetails);
+
+        const filterText = !filterRegisteredCheckbox.checked ?
+            " (bez zarejestrowanych)" : "";
+        searchStatus.textContent = `Znaleziono ${filteredResults.length} uczestników${filterText}`;
+
+        // Auto-select the best match
+        if (filteredResults.length > 0) {
+            selectedIndex = 0;
+            updateSelection(resultsContainer.querySelectorAll('.result-item'));
+        } else {
+            selectedIndex = -1;
+        }
+    }
+
+    function searchByLetterSequence(query, searchData) {
+        // This function finds items where the query letters appear in the same sequence
+        // First, normalize the query by removing spaces and converting to lowercase
+        const queryCharsWithSpaces = [...query.toLowerCase()];
+        // Filter out spaces from the query
+        const queryChars = queryCharsWithSpaces.filter(char => char !== ' ');
+
+        const results = [];
+
+        for (const item of searchData) {
+            const text = item.normalizedValue.toLowerCase();
+            const positions = isSequentialMatch(text, queryChars);
+
+            if (positions.length === queryChars.length) {
+                results.push({
+                    item: item,
+                    positions: positions
+                });
+            }
+        }
+
+        return results;
+    }
+
+    function isSequentialMatch(text, queryChars) {
+        // Returns array of positions where the characters match in sequence
+        let textPos = 0;
+        const positions = [];
+
+        for (const char of queryChars) {
+            // Find the position of the current character, starting from textPos
+            const pos = text.indexOf(char, textPos);
+
+            // If character not found, return empty array
+            if (pos === -1) return [];
+
+            // Add position to results
+            positions.push(pos);
+
+            // Move to the position after the found character
+            textPos = pos + 1;
+        }
+
+        return positions;
+    }
+
+    function displayResults(items, query = '', matchDetails = new Map()) {
+        if (!items.length) {
+            resultsContainer.innerHTML = '<div class="no-results">No matching items found</div>';
+            return;
+        }
+
+        const fragment = document.createDocumentFragment();
+
+        items.forEach((item, index) => {
+            const div = document.createElement('div');
+            div.className = 'result-item';
+            div.dataset.index = index;
+
+            const matchInfo = matchDetails.get(item);
+            let content = item.value; // Display the original value
+
+            if (matchInfo && matchInfo.type === 'sequence') {
+                // Highlight sequence matches
+                // We need to map the positions from normalized text to original text
+                const positions = matchInfo.positions;
+
+                // To ensure we highlight the right characters in the original text,
+                // we need to figure out the correspondence between positions in normalized and original
+                let normalizedPos = 0;
+                let originalPos = 0;
+                let mappedPositions = [];
+
+                // This is a simplified approach - for exact character matching we'd need more complex logic
+                for (let i = 0; i < item.normalizedValue.length; i++) {
+                    if (positions.includes(i)) {
+                        mappedPositions.push(originalPos);
+                    }
+                    originalPos++;
+                    // Skip characters that were normalized out (if original is longer)
+                    if (originalPos < item.value.length &&
+                        normalizePolishChars(item.value[originalPos]) !== item.normalizedValue[i + 1]) {
+                        originalPos++;
+                    }
+                }
+
+                // Build highlighted HTML by inserting highlight spans
+                let html = '';
+                let lastPos = 0;
+
+                for (const pos of mappedPositions) {
+                    html += escapeHTML(content.substring(lastPos, pos));
+                    html += `<span class="highlight">${escapeHTML(content.charAt(pos))}</span>`;
+                    lastPos = pos + 1;
+                }
+
+                html += escapeHTML(content.substring(lastPos));
+                div.innerHTML = html;
+
+                // Add match info
+                const infoDiv = document.createElement('div');
+                infoDiv.className = 'match-info';
+                // Remove spaces from query for display to match the actual search logic
+                const displayQuery = query.replace(/\s+/g, '');
+                infoDiv.textContent = `Letter sequence match: '${displayQuery}'`;
+                div.appendChild(infoDiv);
+            } else if (matchInfo && matchInfo.type === 'fuzzy') {
+                // For fuzzy matches, do a simple highlight of the query parts
+                div.textContent = content;
+
+                // Add match info
+                const infoDiv = document.createElement('div');
+                infoDiv.className = 'match-info';
+                infoDiv.textContent = `Fuzzy match (score: ${Math.round((1 - matchInfo.score) * 100)}%)`;
+                div.appendChild(infoDiv);
+            } else {
+                div.textContent = content;
+            }
+
+            // Add indicator for registered items
+            if (isItemRegistered(item)) {
+                const registeredDiv = document.createElement('div');
+                registeredDiv.className = 'match-info';
+                registeredDiv.textContent = 'Już zarejestrowany/a';
+                registeredDiv.style.color = '#f44336';
+                div.appendChild(registeredDiv);
+            }
+
+            div.addEventListener('click', () => {
+                selectItem(item);
+            });
+
+            fragment.appendChild(div);
+        });
+
+        resultsContainer.innerHTML = '';
+        resultsContainer.appendChild(fragment);
+    }
+
+    // Keyboard navigation
+    document.addEventListener('keydown', function (e) {
+        if (!filteredResults.length && !data.length) return;
+
+        const displayedItems = filteredResults.length ? filteredResults : getFilteredData();
+        const resultElements = resultsContainer.querySelectorAll('.result-item');
+
+        // Handle arrow keys for navigation
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            selectedIndex = Math.min(selectedIndex + 1, displayedItems.length - 1);
+            updateSelection(resultElements);
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            selectedIndex = Math.max(selectedIndex - 1, 0);
+            updateSelection(resultElements);
+        } else if (e.key === 'Enter' && selectedIndex >= 0) {
+            e.preventDefault();
+            selectItem(displayedItems[selectedIndex]);
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            clearSearch();
+        }
+    });
+
+    function clearSearch() {
+        searchInput.value = '';
+        displayFilteredResults();
+        selectedIndex = -1;
+    }
+
+    function updateSelection(elements) {
+        elements.forEach((el, i) => {
+            if (i === selectedIndex) {
+                el.classList.add('selected');
+                el.scrollIntoView({block: 'nearest'});
+            } else {
+                el.classList.remove('selected');
+            }
+        });
+    }
+
+    async function selectItem(item) {
+        const volunteerID = document.getElementById('volunteerID').value;
+
+        if (!volunteerID) {
+            showToast('Wprowadź ID wolontariusza aby zarejestrować uczestnika', 'error');
+            reopenSetupIfNeeded();
+            return;
+        }
+
+        // Check if item is already registered
+        if (isItemRegistered(item)) {
+            showToast('Ten uczestnik jest już zarejestrowany', 'error');
+            return;
+        }
+
+        // Get hash from cache or calculate it
+        let hashedEntry;
+        if (hashCache.has(item.value)) {
+            hashedEntry = hashCache.get(item.value);
+        } else {
+            hashedEntry = hashValue(item.value);
+            hashCache.set(item.value, hashedEntry);
+        }
+
+        const entry = {
+            volunteerID: volunteerID,
+            entry: hashedEntry,
+        };
+
+        try {
+            const response = await fetch('/entry', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(entry)
+            });
+
+            if (response.ok) {
+                showToast(`Uczestnik zarejestrowany: ${item.value}`, 'success');
+
+                // Add entry to local registered set
+                registeredHashes.add(hashedEntry);
+
+                // Update displayed results
+                clearSearch();
+
+                // Refresh registered entries from server
+                await fetchRegisteredEntries();
+            } else {
+                const errorData = await response.json();
+                showToast(`Napotkano błąd: ${errorData.detail}`, 'error');
+            }
+        } catch (error) {
+            console.log(error)
+            showToast('Napotkano nieznany błąd XD', 'error');
+        }
+    }
+
+    function hashValue(str) {
+        return CryptoJS.MD5(str).toString();
+    }
+
+    function showToast(message, type) {
+        const toast = document.getElementById('toast');
+        const toastMessage = document.getElementById('toast-message');
+
+        toastMessage.textContent = message;
+        toast.className = `toast ${type}`; // Add success or error class
+        toast.classList.add('show');
+
+        // Automatically hide the toast after 5 seconds
+        setTimeout(() => {
+            toast.classList.remove('show');
+        }, 5000);
+    }
+
+    // Utility functions
+    function escapeRegExp(string) {
+        return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    function escapeHTML(str) {
+        return str
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    // Fetch entries initially and set up auto-refresh
+    window.onload = function () {
+        fetchRegisteredEntries(); // Initial load
+        setInterval(fetchRegisteredEntries, 1000);
+    };
+</script>
+</body>
+</html>
