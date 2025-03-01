@@ -11,9 +11,7 @@ RUN pip install --no-cache-dir fastapi uvicorn pytz bcrypt
 COPY backend.py /app/
 
 # Copy the static files
-COPY static/pepe.ico /app/static/
-COPY static/registration.html /app/static/
-COPY static/status.html /app/static/
+COPY static /app/static
 
 # Make port 8000 available to the world outside this container
 EXPOSE 8000
@@ -22,4 +20,4 @@ EXPOSE 8000
 ENV PYTHONUNBUFFERED=1
 
 # Run the application
-CMD ["uvicorn", "backend:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "backend:app", "--host", "0.0.0.0", "--port", "8000", "--ssl-keyfile", "/app/key.pem", "--ssl-certfile", "/app/cert.pem"]

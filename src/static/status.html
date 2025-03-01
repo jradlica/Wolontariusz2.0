@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/x-icon" href="pepe.ico">
-    <title>W 2.0 - status rejestracji</title>
+    <title>W 2.0 - status</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
@@ -53,18 +53,18 @@
             background-color: #f0f7ff;
         }
 
+        tr.duplicate {
+            background-color: #fff9c4; /* Light yellow background for duplicates */
+        }
+
+        tr.duplicate:hover {
+            background-color: #fff59d; /* Slightly darker yellow when hovering over duplicates */
+        }
+
         .total-entries {
             text-align: right;
             margin-top: 20px;
             font-weight: bold;
-        }
-
-        .file-input {
-            margin-bottom: 20px;
-        }
-
-        .file-input input {
-            padding: 10px 0;
         }
 
         .entries-count {
@@ -79,36 +79,140 @@
             color: #666;
             margin-top: 10px;
         }
+
+        .toast {
+            visibility: hidden;
+            max-width: 300px;
+            margin: 0 auto;
+            background-color: #333;
+            color: #fff;
+            text-align: center;
+            border-radius: 5px;
+            padding: 10px;
+            position: fixed;
+            z-index: 1;
+            left: 50%;
+            bottom: 30px;
+            transform: translateX(-50%);
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+
+        .toast.show {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        .toast.success {
+            background-color: #4CAF50; /* Green background for success */
+        }
+
+        .toast.error {
+            background-color: #F44336; /* Red background for error */
+        }
+
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #ddd;
+            margin-bottom: 20px;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            background-color: #f0f0f0;
+            border: 1px solid #ddd;
+            border-bottom: none;
+            border-radius: 4px 4px 0 0;
+            margin-right: 5px;
+            font-weight: bold;
+        }
+
+        .tab.active {
+            background-color: #fff;
+            border-bottom: 1px solid #fff;
+            margin-bottom: -1px;
+        }
     </style>
 </head>
 <body>
 <div class="container">
     <h1>Status rejestracji</h1>
 
-    <!-- File Input Field -->
-    <div class="file-input">
-        <input type="file" id="csv-file" accept=".csv">
-        <p class="status" id="file-status">Nie wybrano pliku</p>
+    <div class="tabs">
+        <a href="/registration" class="tab" data-tab="registration" style="text-decoration: none; color: inherit;">Rejestracja</a>
+        <a href="/status" class="tab active" data-tab="status" style="text-decoration: none; color: inherit;">Log</a>
+        <a href="/stats" class="tab" data-tab="stats" style="text-decoration: none; color: inherit;">Statystyki</a>
+        <a href="/settings" class="tab" data-tab="settings" style="text-decoration: none; color: inherit;">Ustawienia</a>
+        <a href="/info" class="tab" data-tab="info" style="text-decoration: none; color: inherit;">Info</a>
     </div>
 
     <!-- Display Number of Entries -->
     <div class="entries-count" id="entriesCount">Liczba uczestników: 0</div>
+    <div class="entries-count" id="uniqueEntriesCount">Liczba unikalnych uczestników: 0</div>
+    <p class="status" id="file-status">Ładowanie ustawień...</p>
 
     <table id="entriesTable">
         <thead>
         <tr>
-            <th>Wolontariusz</th>
-            <th>Uczestnik</th>
             <th>Timestamp</th>
+            <th>Uczestnik</th>
+            <th>Wolontariusz</th>
+            <th>Lokalizacja</th>
         </tr>
         </thead>
         <tbody>
         </tbody>
     </table>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast">
+        <span id="toast-message"></span>
+    </div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
 <script>
+    // DOM elements
+    const fileStatus = document.getElementById('file-status');
+    const hashToCsvLine = new Map();
+
+    // Check settings before proceeding
+    function checkSettings() {
+        const volunteerID = localStorage.getItem('volunteerID');
+        const csvFileContent = localStorage.getItem('csvFileContent');
+
+        if (!csvFileContent) {
+            // Redirect to settings page if CSV file is not set
+            showToast('Brak pliku CSV. Przekierowanie do strony ustawień...', 'error');
+            setTimeout(() => {
+                window.location.href = '/settings';
+            }, 2000);
+            return false;
+        }
+
+        // Process the CSV file content from localStorage
+        try {
+            const data = parseCSV(csvFileContent);
+
+            // Create hash to CSV line mapping
+            hashToCsvLine.clear();
+            for (const line of data) {
+                const hash = hashValue(line);
+                hashToCsvLine.set(hash, line);
+            }
+
+            const fileName = localStorage.getItem('selectedFileName') || 'plik';
+            fileStatus.textContent = `Załadowano ${data.length} uczestników z ${fileName}`;
+
+            return true;
+        } catch (error) {
+            fileStatus.textContent = `Błąd: ${error.message}`;
+            console.error('Error processing CSV:', error);
+            return false;
+        }
+    }
+
     async function fetchEntries() {
         try {
             const response = await fetch('/entries');
@@ -118,6 +222,7 @@
             const data = await response.json();
             return data.entries;
         } catch (error) {
+            showToast(`Error: ${error.message}`, 'error')
             console.error('Error fetching entries:', error);
             return [];
         }
@@ -130,31 +235,63 @@
         return `${timestamp.getFullYear()}-${String(timestamp.getMonth() + 1).padStart(2, '0')}-${String(timestamp.getDate()).padStart(2, '0')} ${timestamp.getHours()}:${String(timestamp.getMinutes()).padStart(2, '0')}:${String(timestamp.getSeconds()).padStart(2, '0')}`;
     }
 
-    function populateTable(entries, hashToCsvLine) {
+    function populateTable(entries) {
         const tbody = document.querySelector('#entriesTable tbody');
         tbody.innerHTML = ''; // Clear existing rows
 
         // Sort entries by timestamp in descending order (newest first)
         entries.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
+        // Count occurrences of each decodedEntry to identify duplicates
+        const entryCounts = new Map();
+
+        entries.forEach(entry => {
+            const decodedEntry = hashToCsvLine.get(entry.participantHash) || entry.participantHash;
+
+            // Increment count for this entry
+            entryCounts.set(decodedEntry, (entryCounts.get(decodedEntry) || 0) + 1);
+        });
+
         entries.forEach(entry => {
             const row = document.createElement('tr');
-            const decodedEntry = hashToCsvLine.get(entry.entry) || entry.entry;
+            const decodedEntry = hashToCsvLine.get(entry.participantHash) || entry.participantHash;
+
+            // Add duplicate class if this entry appears more than once
+            if (entryCounts.get(decodedEntry) > 1) {
+                row.classList.add('duplicate');
+            }
+
             row.innerHTML = `
-                    <td>${entry.volunteerID}</td>
-                    <td>${decodedEntry}</td>
                     <td>${formatTimestamp(entry.timestamp)}</td>
+                    <td>${decodedEntry}</td>
+                    <td>${entry.volunteerID}</td>
+                    <td>${entry.registrationPlace || 'N/A'}</td>
                 `;
             tbody.appendChild(row);
         });
 
         // Update number of entries above the table
-        document.getElementById('entriesCount').textContent = `Liczba uczestników: ${entries.length}`;
+        document.getElementById('entriesCount').textContent = `Liczba wpisów: ${entries.length}`;
     }
 
     async function updateTable() {
         const entries = await fetchEntries();
-        populateTable(entries, hashToCsvLine);
+        populateTable(entries);
+    }
+
+    async function refreshUniqueEntries() {
+        try {
+            const response = await fetch('/unique-entries');
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            const data = await response.json();
+            document.getElementById('uniqueEntriesCount').textContent = `Liczba unikalnych uczestników: ${data.entries.length}`;
+        } catch (error) {
+            showToast(`Error: ${error.message}`, 'error')
+            console.error('Error fetching unique entries:', error);
+            return [];
+        }
     }
 
     function hashValue(str) {
@@ -168,54 +305,28 @@
         return parsedData;
     }
 
-    // Handle file upload
-    const fileInput = document.getElementById('csv-file');
-    const fileStatus = document.getElementById('file-status');
-    let hashToCsvLine = new Map();
+    function showToast(message, type) {
+        const toast = document.getElementById('toast');
+        const toastMessage = document.getElementById('toast-message');
 
-    fileInput.addEventListener('change', async function (e) {
-        const file = e.target.files[0];
-        if (!file) {
-            fileStatus.textContent = 'No file selected';
-            return;
-        }
+        toastMessage.textContent = message;
+        toast.className = `toast ${type}`; // Add success or error class
+        toast.classList.add('show');
 
-        fileStatus.textContent = `Loading: ${file.name}`;
-
-        const reader = new FileReader();
-        reader.onload = async function (e) {
-            try {
-                const data = parseCSV(e.target.result);
-                fileStatus.textContent = `Załadowano ${data.length} uczestników z pliku ${file.name}`;
-
-                // Create hash to CSV line mapping
-                hashToCsvLine.clear();
-                for (const line of data) {
-                    const hash = hashValue(line);
-                    hashToCsvLine.set(hash, line);
-                }
-
-                // Update the table with the new mapping
-                const entries = await fetchEntries();
-                populateTable(entries, hashToCsvLine);
-            } catch (error) {
-                fileStatus.textContent = `Error: ${error.message}`;
-                console.error(error);
-            }
-        };
-
-        reader.onerror = function () {
-            fileStatus.textContent = 'Nie można otworzyć pliku';
-        };
-
-        reader.readAsText(file);
-    });
+        // Automatically hide the toast after 5 seconds
+        setTimeout(() => {
+            toast.classList.remove('show');
+        }, 2000);
+    }
 
     // Fetch and update the table when the page loads
     window.onload = function () {
-        updateTable(); // Initial load
-        // Set interval to refresh every 5 seconds
-        setInterval(updateTable, 1000);
+        if (checkSettings()) {
+            updateTable(); // Initial load
+            refreshUniqueEntries(); // Initial load
+            setInterval(updateTable, 5000); // Refresh every 5 seconds
+            setInterval(refreshUniqueEntries, 5000); // Refresh every 5 seconds
+        }
     };
 </script>
 </body>

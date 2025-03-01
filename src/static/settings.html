@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/x-icon" href="pepe.ico">
+    <title>W 2.0 - ustawienia</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            max-width: 1000px;
+            margin: 0 auto;
+            color: #333;
+        }
+
+        .container {
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: #2c3e50;
+            margin-top: 0;
+        }
+
+        .file-input {
+            margin-bottom: 20px;
+        }
+
+        .volunteer-id-input {
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+        }
+
+        .volunteer-id-input label {
+            margin-right: 10px;
+            margin-bottom: 0;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+
+        .volunteer-id-input input {
+            width: 200px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+
+        .details-content {
+            padding: 15px;
+        }
+
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #ddd;
+            margin-bottom: 20px;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            background-color: #f0f0f0;
+            border: 1px solid #ddd;
+            border-bottom: none;
+            border-radius: 4px 4px 0 0;
+            margin-right: 5px;
+            font-weight: bold;
+        }
+
+        .tab.active {
+            background-color: #fff;
+            border-bottom: 1px solid #fff;
+            margin-bottom: -1px;
+        }
+
+        .button-container {
+            margin-top: 20px;
+            text-align: right;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .save-button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+
+        .save-button:hover {
+            background-color: #45a049;
+        }
+
+        .reset-button {
+            background-color: #f44336;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+
+        .reset-button:hover {
+            background-color: #d32f2f;
+        }
+
+        .toast {
+            visibility: hidden;
+            max-width: 300px;
+            margin: 0 auto;
+            background-color: #333;
+            color: #fff;
+            text-align: center;
+            border-radius: 5px;
+            padding: 10px;
+            position: fixed;
+            z-index: 1;
+            left: 50%;
+            bottom: 30px;
+            transform: translateX(-50%);
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+
+        .toast.show {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        .toast.success {
+            background-color: #4CAF50;
+        }
+
+        .toast.error {
+            background-color: #F44336;
+        }
+
+        .toast.info {
+            background-color: #2196F3;
+        }
+
+        .registration-place {
+            margin-bottom: 20px;
+        }
+
+        .registration-place-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .registration-place-options {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .registration-place-option {
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+        }
+
+        .registration-place-option input[type="radio"] {
+            margin-right: 8px;
+        }
+
+
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Ustawienia</h1>
+
+    <div class="tabs">
+        <a href="/registration" class="tab" data-tab="registration" style="text-decoration: none; color: inherit;">Rejestracja</a>
+        <a href="/status" class="tab" data-tab="status" style="text-decoration: none; color: inherit;">Log</a>
+        <a href="/stats" class="tab" data-tab="stats" style="text-decoration: none; color: inherit;">Statystyki</a>
+        <a href="/settings" class="tab active" data-tab="settings" style="text-decoration: none; color: inherit;">Ustawienia</a>
+        <a href="/info" class="tab" data-tab="info" style="text-decoration: none; color: inherit;">Info</a>
+    </div>
+
+    <div class="details-content">
+        <!-- Volunteer ID Input -->
+        <div class="volunteer-id-input">
+            <label for="volunteerID">Wolontariusz ID:</label>
+            <input type="text" id="volunteerID" name="volunteerID" required>
+        </div>
+
+        <!-- Registration Place Options -->
+        <div class="registration-place">
+            <div class="registration-place-title">Miejsce rejestracji:</div>
+            <div class="registration-place-options">
+                <div class="registration-place-option">
+                    <input type="radio" id="place-prawo" name="registrationPlace" value="PRAWO">
+                    <label for="place-prawo">PRAWO</label>
+                </div>
+                <div class="registration-place-option">
+                    <input type="radio" id="place-lewo" name="registrationPlace" value="LEWO">
+                    <label for="place-lewo">LEWO</label>
+                </div>
+                <div class="registration-place-option">
+                    <input type="radio" id="place-informacja" name="registrationPlace" value="INFORMACJA">
+                    <label for="place-informacja">INFORMACJA</label>
+                </div>
+            </div>
+        </div>
+
+        <div class="file-input">
+            <input type="file" id="csv-file" accept=".csv">
+            <p class="status" id="file-status">Nie wybrano pliku</p>
+        </div>
+    </div>
+
+    <div class="button-container">
+        <button id="resetSettings" class="reset-button">Resetuj ustawienia</button>
+        <button id="saveSettings" class="save-button">Zapisz ustawienia</button>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast">
+        <span id="toast-message"></span>
+    </div>
+
+
+</div>
+
+<script>
+    // DOM elements
+    const fileInput = document.getElementById('csv-file');
+    const fileStatus = document.getElementById('file-status');
+    const volunteerIDInput = document.getElementById('volunteerID');
+    const saveButton = document.getElementById('saveSettings');
+    const resetButton = document.getElementById('resetSettings');
+    const registrationPlaceOptions = document.getElementsByName('registrationPlace');
+
+    // Load existing settings if available
+    window.addEventListener('DOMContentLoaded', () => {
+        const savedVolunteerID = localStorage.getItem('volunteerID');
+        if (savedVolunteerID) {
+            volunteerIDInput.value = savedVolunteerID;
+        }
+
+        const savedFileName = localStorage.getItem('selectedFileName');
+        if (savedFileName) {
+            fileStatus.textContent = `Ostatnio wybrany plik: ${savedFileName}`;
+        }
+
+        // Load saved registration place
+        const savedRegistrationPlace = localStorage.getItem('registrationPlace');
+        if (savedRegistrationPlace) {
+            for (const option of registrationPlaceOptions) {
+                if (option.value === savedRegistrationPlace) {
+                    option.checked = true;
+                    break;
+                }
+            }
+        } else {
+            // Default selection if none was saved
+            document.getElementById('place-prawo').checked = true;
+        }
+    });
+
+    // Handle file selection
+    fileInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) {
+            fileStatus.textContent = 'Nie wybrano pliku';
+            return;
+        }
+
+        fileStatus.textContent = `Wybrano: ${file.name}`;
+    });
+
+    // Save settings to local storage
+    saveButton.addEventListener('click', function() {
+        const volunteerID = volunteerIDInput.value.trim();
+        const file = fileInput.files[0];
+
+        if (!volunteerID) {
+            showToast('Wprowadź ID wolontariusza', 'error');
+            return;
+        }
+
+        // Get selected registration place
+        let selectedPlace = null;
+        for (const option of registrationPlaceOptions) {
+            if (option.checked) {
+                selectedPlace = option.value;
+                break;
+            }
+        }
+
+        if (!selectedPlace) {
+            showToast('Wybierz miejsce rejestracji', 'error');
+            return;
+        }
+
+        // Save volunteer ID and registration place
+        localStorage.setItem('volunteerID', volunteerID);
+        localStorage.setItem('registrationPlace', selectedPlace);
+
+        // Save file information if selected
+        if (file) {
+            localStorage.setItem('selectedFileName', file.name);
+
+            // Read and store file content
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                localStorage.setItem('csvFileContent', e.target.result);
+                showToast('Ustawienia zapisane pomyślnie', 'success');
+
+                // Redirect to registration page after successful save
+                setTimeout(() => {
+                    window.location.href = '/registration';
+                }, 1500);
+            };
+
+            reader.onerror = function() {
+                showToast('Błąd podczas odczytu pliku', 'error');
+            };
+
+            reader.readAsText(file);
+        } else {
+            // If just saving volunteer ID without changing file
+            showToast('Ustawienia zapisane pomyślnie', 'success');
+
+            // Redirect to registration page after successful save
+            setTimeout(() => {
+                window.location.href = '/registration';
+            }, 1500);
+        }
+    });
+
+    // Reset settings button event
+    resetButton.addEventListener('click', function() {
+        // Clear all stored settings
+        localStorage.removeItem('volunteerID');
+        localStorage.removeItem('registrationPlace');
+        localStorage.removeItem('selectedFileName');
+        localStorage.removeItem('csvFileContent');
+
+        // Reset form
+        volunteerIDInput.value = '';
+        fileInput.value = '';
+        fileStatus.textContent = 'Nie wybrano pliku';
+        document.getElementById('place-prawo').checked = true;
+
+        // Show toast
+        showToast('Ustawienia zostały zresetowane', 'info');
+    });
+
+    function showToast(message, type) {
+        const toast = document.getElementById('toast');
+        const toastMessage = document.getElementById('toast-message');
+
+        toastMessage.textContent = message;
+        toast.className = `toast ${type}`; // Add success, error, or info class
+        toast.classList.add('show');
+
+        // Automatically hide the toast after 3 seconds
+        setTimeout(() => {
+            toast.classList.remove('show');
+        }, 3000);
+    }
+</script>
+</body>
+</html>

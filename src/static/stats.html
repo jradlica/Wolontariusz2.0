@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/x-icon" href="pepe.ico">
+    <title>W 2.0 - statystyki</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            max-width: 1000px;
+            margin: 0 auto;
+            color: #333;
+        }
+
+        .container {
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: #2c3e50;
+            margin-top: 0;
+        }
+
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #ddd;
+            margin-bottom: 20px;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            background-color: #f0f0f0;
+            border: 1px solid #ddd;
+            border-bottom: none;
+            border-radius: 4px 4px 0 0;
+            margin-right: 5px;
+            font-weight: bold;
+        }
+
+        .tab.active {
+            background-color: #fff;
+            border-bottom: 1px solid #fff;
+            margin-bottom: -1px;
+        }
+
+        .data-source-selector {
+            margin-bottom: 20px;
+            padding: 10px;
+            background-color: #f0f0f0;
+            border-radius: 4px;
+        }
+
+        .data-source-selector select {
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            margin-left: 10px;
+            font-size: 14px;
+            min-width: 220px;
+        }
+
+        .chart-container {
+            margin-bottom: 30px;
+            background-color: white;
+            border-radius: 4px;
+            padding: 15px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .chart-title {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+
+        .stats-summary {
+            display: flex;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+            gap: 10px;
+        }
+
+        .stat-card {
+            flex: 1;
+            min-width: 150px;
+            background-color: white;
+            border-radius: 4px;
+            padding: 15px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin: 10px 0;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            color: #7f8c8d;
+        }
+
+        .toast {
+            visibility: hidden;
+            max-width: 300px;
+            margin: 0 auto;
+            background-color: #333;
+            color: #fff;
+            text-align: center;
+            border-radius: 5px;
+            padding: 10px;
+            position: fixed;
+            z-index: 1;
+            left: 50%;
+            bottom: 30px;
+            transform: translateX(-50%);
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+
+        .toast.show {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        .toast.success {
+            background-color: #4CAF50;
+        }
+
+        .toast.error {
+            background-color: #F44336;
+        }
+
+        .chart-legend {
+            display: flex;
+            justify-content: center;
+            margin-top: 10px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 0 10px;
+        }
+
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+            margin-right: 5px;
+        }
+
+        .refresh-button {
+            margin-left: 10px;
+            padding: 8px 15px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .refresh-button:hover {
+            background-color: #2980b9;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Statystyki</h1>
+
+    <div class="tabs">
+        <a href="/registration" class="tab" data-tab="registration" style="text-decoration: none; color: inherit;">Rejestracja</a>
+        <a href="/status" class="tab" data-tab="status" style="text-decoration: none; color: inherit;">Log</a>
+        <a href="/stats" class="tab active" data-tab="stats" style="text-decoration: none; color: inherit;">Statystyki</a>
+        <a href="/settings" class="tab" data-tab="settings" style="text-decoration: none; color: inherit;">Ustawienia</a>
+        <a href="/info" class="tab" data-tab="info" style="text-decoration: none; color: inherit;">Info</a>
+    </div>
+
+    <div class="data-source-selector">
+        <div style="margin-bottom: 10px;">
+            <label for="dataSource">Źródło danych:</label>
+            <select id="dataSource">
+                <option value="entries">Wszystkie wpisy</option>
+                <option value="unique-entries">Unikalne wpisy (ostatni wpis)</option>
+                <option value="entries?registrationPlace=PRAWO">PRAWO - wszystkie</option>
+                <option value="unique-entries?registrationPlace=PRAWO">PRAWO - unikalne</option>
+                <option value="entries?registrationPlace=LEWO">LEWO - wszystkie</option>
+                <option value="unique-entries?registrationPlace=LEWO">LEWO - unikalne</option>
+                <option value="entries?registrationPlace=INFORMACJA">INFORMACJA - wszystkie</option>
+                <option value="unique-entries?registrationPlace=INFORMACJA">INFORMACJA - unikalne</option>
+            </select>
+            <button id="refreshData" class="refresh-button">Odśwież dane</button>
+        </div>
+    </div>
+
+    <div class="stats-summary">
+        <div class="stat-card">
+            <div class="stat-label">Łączna liczba uczestników</div>
+            <div class="stat-value" id="totalEntries">--</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Dzisiejsza liczba uczestników</div>
+            <div class="stat-value" id="todayEntries">--</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Ostatnia godzina</div>
+            <div class="stat-value" id="lastHourEntries">--</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Ostatnia rejestracja</div>
+            <div class="stat-value" id="lastRegistration">--</div>
+        </div>
+    </div>
+
+    <div class="chart-container" style="height: 300px;">
+        <div class="chart-title">Rozkład rejestracji (co minutę)</div>
+        <canvas id="minuteChart"></canvas>
+    </div>
+
+    <div class="chart-container" style="height: 300px;">
+        <div class="chart-title">Rozkład rejestracji (co 10 minut)</div>
+        <canvas id="tenMinuteChart"></canvas>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast">
+        <span id="toast-message"></span>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.1/chart.min.js"></script>
+<script>
+    // DOM elements
+    const dataSourceSelect = document.getElementById('dataSource');
+    const refreshButton = document.getElementById('refreshData');
+    const totalEntriesElement = document.getElementById('totalEntries');
+    const todayEntriesElement = document.getElementById('todayEntries');
+    const lastHourEntriesElement = document.getElementById('lastHourEntries');
+    const lastRegistrationElement = document.getElementById('lastRegistration');
+
+    // Chart instances
+    let minuteChart = null;
+    let tenMinuteChart = null;
+
+    // Time range settings - will be dynamically calculated
+    let startMinute = 6 * 60; // Initial default
+    let endMinute = 22 * 60;  // Initial default
+
+    // Function to determine the time range from entries
+    function calculateTimeRangeFromEntries(entries) {
+        if (!entries || entries.length === 0) {
+            // Default fallback if no entries
+            return {
+                startMinute: 6 * 60,  // 6:00 AM
+                endMinute: 22 * 60    // 10:00 PM
+            };
+        }
+
+        // Sort entries by timestamp
+        const sortedEntries = [...entries].sort((a, b) =>
+            new Date(a.timestamp) - new Date(b.timestamp)
+        );
+
+        // Get first and last entry times
+        const firstEntryDate = new Date(sortedEntries[0].timestamp);
+        const lastEntryDate = new Date(sortedEntries[sortedEntries.length - 1].timestamp);
+
+        // Convert to minutes of day
+        const firstEntryMinute = firstEntryDate.getHours() * 60 + firstEntryDate.getMinutes();
+        const lastEntryMinute = lastEntryDate.getHours() * 60 + lastEntryDate.getMinutes();
+
+        // Add padding (10 minutes on each side)
+        let startMinute = Math.max(0, firstEntryMinute - 10);
+        let endMinute = Math.min(1439, lastEntryMinute + 10); // 1439 = 23:59
+
+        return { startMinute, endMinute };
+    }
+
+    // Load data and update the UI
+    async function fetchData() {
+        try {
+            const endpoint = dataSourceSelect.value;
+            const response = await fetch(`/${endpoint}`);
+
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+
+            const data = await response.json();
+
+            // Calculate time range based on actual entries
+            const timeRange = calculateTimeRangeFromEntries(data.entries);
+            startMinute = timeRange.startMinute;
+            endMinute = timeRange.endMinute;
+
+            updateStats(data.entries);
+            updateCharts(data.entries);
+
+            showToast('Dane odświeżone pomyślnie', 'success');
+        } catch (error) {
+            console.error('Error fetching data:', error);
+            showToast(`Błąd: ${error.message}`, 'error');
+        }
+    }
+
+    // Update the statistics summary
+    function updateStats(entries) {
+        // Calculate total entries
+        totalEntriesElement.textContent = entries.length;
+
+        // Get today's date
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        // Filter entries for today
+        const todayEntries = entries.filter(entry => {
+            const entryDate = new Date(entry.timestamp);
+            return entryDate >= today;
+        });
+
+        todayEntriesElement.textContent = todayEntries.length;
+
+        // Calculate entries from the last hour
+        const oneHourAgo = new Date();
+        oneHourAgo.setHours(oneHourAgo.getHours() - 1);
+
+        const lastHourEntries = entries.filter(entry => {
+            const entryDate = new Date(entry.timestamp);
+            return entryDate >= oneHourAgo;
+        });
+
+        lastHourEntriesElement.textContent = lastHourEntries.length;
+
+        // Get the most recent registration time
+        if (entries.length > 0) {
+            // Sort entries by timestamp (newest first)
+            const sortedEntries = [...entries].sort((a, b) =>
+                new Date(b.timestamp) - new Date(a.timestamp)
+            );
+
+            const lastEntry = sortedEntries[0];
+            const lastEntryTime = new Date(lastEntry.timestamp);
+            lastRegistrationElement.textContent = formatTime(lastEntryTime);
+        } else {
+            lastRegistrationElement.textContent = "Brak";
+        }
+    }
+
+    // Update the charts with entry data
+    function updateCharts(entries) {
+        // Get today's entries
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const todayEntries = entries.filter(entry => {
+            const entryDate = new Date(entry.timestamp);
+            return entryDate >= today;
+        });
+
+        // Prepare minute-by-minute data
+        const minuteData = prepareMinuteData(todayEntries);
+        updateMinuteChart(minuteData);
+
+        // Prepare 10-minute interval data
+        const tenMinuteData = prepareTenMinuteData(todayEntries);
+        updateTenMinuteChart(tenMinuteData);
+    }
+
+    // Prepare minute-by-minute distribution data
+    function prepareMinuteData(entries) {
+        // Initialize an array for all minutes in a day (24*60 = 1440 minutes)
+        const minuteCounts = Array(1440).fill(0);
+
+        entries.forEach(entry => {
+            const entryDate = new Date(entry.timestamp);
+            const minuteOfDay = entryDate.getHours() * 60 + entryDate.getMinutes();
+            minuteCounts[minuteOfDay]++;
+        });
+
+        // Create labels for each minute (format: HH:MM), but only for the selected time range
+        const labels = [];
+        const filteredCounts = [];
+
+        for (let minuteOfDay = 0; minuteOfDay < 1440; minuteOfDay++) {
+            if (minuteOfDay >= startMinute && minuteOfDay <= endMinute) {
+                const hour = Math.floor(minuteOfDay / 60);
+                const minute = minuteOfDay % 60;
+                labels.push(`${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`);
+                filteredCounts.push(minuteCounts[minuteOfDay]);
+            }
+        }
+
+        return {
+            labels: labels,
+            counts: filteredCounts
+        };
+    }
+
+    // Prepare 10-minute interval distribution data
+    function prepareTenMinuteData(entries) {
+        // Initialize an array for 10-minute intervals in a day (24*6 = 144 intervals)
+        const tenMinuteCounts = Array(144).fill(0);
+
+        entries.forEach(entry => {
+            const entryDate = new Date(entry.timestamp);
+            const tenMinuteInterval = Math.floor((entryDate.getHours() * 60 + entryDate.getMinutes()) / 10);
+            tenMinuteCounts[tenMinuteInterval]++;
+        });
+
+        // Create labels for each 10-minute interval (format: HH:MM), filtered by time range
+        const labels = [];
+        const filteredCounts = [];
+
+        for (let interval = 0; interval < 144; interval++) {
+            const minuteOfDay = interval * 10;
+            if (minuteOfDay >= startMinute && minuteOfDay <= endMinute) {
+                const hour = Math.floor(minuteOfDay / 60);
+                const minute = (minuteOfDay % 60);
+                labels.push(`${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`);
+                filteredCounts.push(tenMinuteCounts[interval]);
+            }
+        }
+
+        return {
+            labels: labels,
+            counts: filteredCounts
+        };
+    }
+
+    // Update the minute-by-minute chart
+    function updateMinuteChart(data) {
+        const ctx = document.getElementById('minuteChart').getContext('2d');
+
+        // Destroy previous chart if exists
+        if (minuteChart) {
+            minuteChart.destroy();
+        }
+
+        minuteChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: data.labels,
+                datasets: [{
+                    label: 'Liczba rejestracji (co minutę)',
+                    data: data.counts,
+                    backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Liczba rejestracji'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Czas'
+                        },
+                        ticks: {
+                            autoSkip: true,
+                            maxTicksLimit: 24,
+                            callback: function(val, index) {
+                                // Only show hour marks (XX:00)
+                                return data.labels[index].endsWith(':00') ? data.labels[index] : '';
+                            }
+                        }
+                    }
+                },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            title: function(tooltipItems) {
+                                return tooltipItems[0].label;
+                            },
+                            label: function(context) {
+                                return `Rejestracje: ${context.raw}`;
+                            }
+                        }
+                    }
+                },
+                responsive: true,
+                maintainAspectRatio: true,
+                aspectRatio: 3
+            }
+        });
+
+        // Set a fixed height for the chart container
+        document.getElementById('minuteChart').parentElement.style.height = '300px';
+    }
+
+    // Update the 10-minute interval chart
+    function updateTenMinuteChart(data) {
+        const ctx = document.getElementById('tenMinuteChart').getContext('2d');
+
+        // Destroy previous chart if exists
+        if (tenMinuteChart) {
+            tenMinuteChart.destroy();
+        }
+
+        tenMinuteChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: data.labels,
+                datasets: [{
+                    label: 'Liczba rejestracji (co 10 minut)',
+                    data: data.counts,
+                    backgroundColor: 'rgba(75, 192, 192, 0.5)',
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Liczba rejestracji'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Czas (10-minutowe przedziały)'
+                        },
+                        ticks: {
+                            autoSkip: true,
+                            maxTicksLimit: 24,
+                            callback: function(val, index) {
+                                // Only show hour marks (XX:00)
+                                return data.labels[index].endsWith(':00') ? data.labels[index] : '';
+                            }
+                        }
+                    }
+                },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            title: function(tooltipItems) {
+                                const interval = tooltipItems[0].label;
+                                const parts = interval.split(':');
+                                const hours = parseInt(parts[0]);
+                                const minutes = parseInt(parts[1]);
+                                const endMinutes = minutes + 9;
+                                return `${interval} - ${hours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}`;
+                            },
+                            label: function(context) {
+                                return `Rejestracje: ${context.raw}`;
+                            }
+                        }
+                    }
+                },
+                responsive: true,
+                maintainAspectRatio: false
+            }
+        });
+
+        // Set a fixed height for the chart container
+        document.getElementById('tenMinuteChart').parentElement.style.height = '300px';
+    }
+
+    // Format time for display
+    function formatTime(date) {
+        return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}:${date.getSeconds().toString().padStart(2, '0')}`;
+    }
+
+    function showToast(message, type) {
+        const toast = document.getElementById('toast');
+        const toastMessage = document.getElementById('toast-message');
+
+        toastMessage.textContent = message;
+        toast.className = `toast ${type}`;
+        toast.classList.add('show');
+
+        setTimeout(() => {
+            toast.classList.remove('show');
+        }, 3000);
+    }
+
+    // Event listeners
+    dataSourceSelect.addEventListener('change', fetchData);
+    refreshButton.addEventListener('click', fetchData);
+
+    // Initialize on page load
+    window.onload = function() {
+        fetchData();
+        // Set up auto-refresh every 30 seconds
+        setInterval(fetchData, 30000);
+    };
+</script>
+</body>
+</html>

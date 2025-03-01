@@ -145,26 +145,9 @@
             background-color: #F44336; /* Red background for error */
         }
 
-        .volunteer-id-input {
+        .volunteer-id-display {
             margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-        }
-
-        .volunteer-id-input label {
-            margin-right: 10px;
-            margin-bottom: 0;
             font-weight: bold;
-            flex-shrink: 0;
-        }
-
-        .volunteer-id-input input {
-            width: 200px; /* Reduced width */
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 16px;
-            box-sizing: border-box;
         }
 
         /* Improved filter option styling */
@@ -194,29 +177,27 @@
             color: #666;
         }
 
-        /* Collapsible details styling */
-        details {
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #ddd;
             margin-bottom: 20px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            background-color: #f5f5f5;
         }
 
-        summary {
-            padding: 12px 15px;
+        .tab {
+            padding: 10px 20px;
             cursor: pointer;
+            background-color: #f0f0f0;
+            border: 1px solid #ddd;
+            border-bottom: none;
+            border-radius: 4px 4px 0 0;
+            margin-right: 5px;
             font-weight: bold;
-            background-color: #e9e9e9;
-            border-radius: 4px;
-            transition: background-color 0.2s;
         }
 
-        summary:hover {
-            background-color: #e0e0e0;
-        }
-
-        .details-content {
-            padding: 15px;
+        .tab.active {
+            background-color: #fff;
+            border-bottom: 1px solid #fff;
+            margin-bottom: -1px;
         }
     </style>
 </head>
@@ -224,22 +205,18 @@
 <div class="container">
     <h1>Rejestracja</h1>
 
-    <!-- Collapsible section for volunteer ID and file input -->
-    <details id="setupDetails" open>
-        <summary>Ustawienia</summary>
-        <div class="details-content">
-            <!-- Volunteer ID Input -->
-            <div class="volunteer-id-input">
-                <label for="volunteerID">Wolontariusz ID:</label>
-                <input type="text" id="volunteerID" name="volunteerID" required>
-            </div>
+    <div class="tabs">
+        <a href="/registration" class="tab active" data-tab="registration" style="text-decoration: none; color: inherit;">Rejestracja</a>
+        <a href="/status" class="tab" data-tab="status" style="text-decoration: none; color: inherit;">Log</a>
+        <a href="/stats" class="tab" data-tab="stats" style="text-decoration: none; color: inherit;">Statystyki</a>
+        <a href="/settings" class="tab" data-tab="settings" style="text-decoration: none; color: inherit;">Ustawienia</a>
+        <a href="/info" class="tab" data-tab="info" style="text-decoration: none; color: inherit;">Info</a>
+    </div>
 
-            <div class="file-input">
-                <input type="file" id="csv-file" accept=".csv">
-                <p class="status" id="file-status">Nie wybrano pliku</p>
-            </div>
-        </div>
-    </details>
+    <!-- Display current volunteer ID -->
+    <div class="volunteer-id-display">
+        Wolontariusz ID: <span id="currentVolunteerID">Nie ustawiono</span>
+    </div>
 
     <!-- Add filter option with improved spacing -->
     <div class="filter-option">
@@ -253,7 +230,7 @@
     <div class="search-container">
         <input type="text" id="search" class="search-input" placeholder="Wpisz, aby wyszukać..." autocomplete="off"
                disabled>
-        <p class="status" id="search-status">Wybierz plik CSV żeby rozpocząć wyszukiwanie</p>
+        <p class="status" id="search-status">Ładowanie ustawień...</p>
     </div>
 
     <div class="results" id="results">
@@ -278,15 +255,12 @@
 
 <script>
     // DOM elements
-    const fileInput = document.getElementById('csv-file');
-    const fileStatus = document.getElementById('file-status');
     const searchInput = document.getElementById('search');
     const searchStatus = document.getElementById('search-status');
     const resultsContainer = document.getElementById('results');
-    const volunteerIDInput = document.getElementById('volunteerID');
+    const currentVolunteerIDSpan = document.getElementById('currentVolunteerID');
     const filterRegisteredCheckbox = document.getElementById('filterRegistered');
     const registeredCountElement = document.getElementById('registeredCount');
-    const setupDetails = document.getElementById('setupDetails');
 
     // State
     let data = [];
@@ -296,6 +270,7 @@
     let fuse = null;
     let selectedIndex = -1;
     let filteredResults = [];
+    let volunteerID = '';
 
     // Polish character normalization mapping
     const polishCharMap = {
@@ -333,35 +308,128 @@
         return parsedData;
     }
 
-    // Additional function to reopen details if needed
-    function reopenSetupIfNeeded() {
-        const volunteerIDValue = volunteerIDInput.value.trim();
-        const fileSelected = fileInput.files.length > 0;
+    // Check if settings exist in localStorage
+    function checkSettings() {
+        volunteerID = localStorage.getItem('volunteerID');
+        const csvFileContent = localStorage.getItem('csvFileContent');
 
-        // If either value is missing, ensure details are open
-        if (volunteerIDValue === '' || !fileSelected) {
-            setupDetails.open = true;
+        if (!volunteerID) {
+            // Redirect to settings page if volunteerID is not set
+            showToast('Niekompletnie ustawienia. Przekierowanie do strony ustawień...', 'error');
+            setTimeout(() => {
+                window.location.href = '/settings';
+            }, 2000);
+            return false;
+        }
+
+        const registrationPlace = localStorage.getItem('registrationPlace');
+        if (!registrationPlace) {
+            // Redirect to settings page if volunteerID is not set
+            showToast('Niekompletnie ustawienia. Przekierowanie do strony ustawień...', 'error');
+            setTimeout(() => {
+                window.location.href = '/settings';
+            }, 2000);
+            return false;
+        }
+
+        // Update displayed volunteerID
+        currentVolunteerIDSpan.textContent = volunteerID;
+
+        if (csvFileContent) {
+            // Process the CSV file content from localStorage
+            try {
+                data = parseCSV(csvFileContent);
+
+                data.sort((a, b) => {
+                    if (a.normalizedValue < b.normalizedValue) return -1;
+                    if (a.normalizedValue > b.normalizedValue) return 1;
+                    return 0;
+                });
+
+                // Prepare hash cache for faster comparison
+                prepareHashCache(data);
+
+                // Initialize Fuse with all data initially
+                fuse = initFuse(data);
+
+                const fileName = localStorage.getItem('selectedFileName') || 'plik';
+                searchStatus.textContent = `Załadowano ${data.length} uczestników z ${fileName}`;
+
+                // Enable search input
+                searchInput.disabled = false;
+
+                // Update display based on filter setting
+                displayFilteredResults();
+
+                return true;
+            } catch (error) {
+                searchStatus.textContent = `Błąd: ${error.message}`;
+                console.error(error);
+                return false;
+            }
+        } else {
+            searchStatus.textContent = 'Brak załadowanego pliku CSV. Przejdź do ustawień, aby wybrać plik.';
+            return false;
         }
     }
 
     // Fetch registered entries from server
     async function fetchRegisteredEntries() {
         try {
-            const response = await fetch('/entries');
+            const response = await fetch('/unique-entries');
             if (!response.ok) {
                 throw new Error('Network response was not ok');
             }
             const data = await response.json();
+
+            // Store previous length to detect changes
+            const previousLength = registeredEntries.length;
+
             registeredEntries = data.entries;
-            registeredHashes = new Set(registeredEntries.map(entry => entry.entry));
+            registeredHashes = new Set(registeredEntries.map(entry => entry.participantHash));
             registeredCountElement.textContent = `Zarejestrowanych uczestników: ${registeredEntries.length}`;
 
-            // If the search input has a value, reapply the search to update results
-            if (searchInput.value.trim()) {
-                performSearch(searchInput.value.trim());
-            } else if (data.length > 0) {
-                // Otherwise just update the display to show filtered or all results
-                displayFilteredResults();
+            // Only update the display if there's been a change in the registered entries
+            // or if this is the initial load
+            if (previousLength !== registeredEntries.length) {
+                // If the search input has a value, reapply the search to update results
+                if (searchInput.value.trim()) {
+                    // Save the current selection index before updating
+                    const currentSelectedItem = selectedIndex >= 0 && filteredResults.length > selectedIndex ?
+                        filteredResults[selectedIndex] : null;
+
+                    performSearch(searchInput.value.trim());
+
+                    // After updating the results, try to restore the selected item
+                    if (currentSelectedItem) {
+                        const newIndex = filteredResults.findIndex(item =>
+                            item.value === currentSelectedItem.value
+                        );
+                        if (newIndex !== -1) {
+                            selectedIndex = newIndex;
+                            const resultElements = resultsContainer.querySelectorAll('.result-item');
+                            updateSelection(resultElements);
+                        }
+                    }
+                } else if (data.length > 0) {
+                    // Otherwise update the display to show filtered or all results
+                    // Save current selection before updating
+                    const currentSelectedValue = selectedIndex >= 0 ?
+                        (filteredResults.length ? filteredResults[selectedIndex].value : null) : null;
+
+                    displayFilteredResults();
+
+                    // Restore selection if possible
+                    if (currentSelectedValue) {
+                        const newDisplayedItems = getFilteredData();
+                        const newIndex = newDisplayedItems.findIndex(item => item.value === currentSelectedValue);
+                        if (newIndex !== -1) {
+                            selectedIndex = newIndex;
+                            const resultElements = resultsContainer.querySelectorAll('.result-item');
+                            updateSelection(resultElements);
+                        }
+                    }
+                }
             }
 
             return registeredEntries;
@@ -371,7 +439,6 @@
             return [];
         }
     }
-
     // Filter data based on registered entries
     function getFilteredData() {
         if (!filterRegisteredCheckbox.checked && registeredHashes.size > 0) {
@@ -384,46 +451,6 @@
     function isItemRegistered(item) {
         return registeredHashes.has(hashCache.get(item.value));
     }
-
-    // Handle file upload
-    fileInput.addEventListener('change', function (e) {
-        const file = e.target.files[0];
-        if (!file) {
-            fileStatus.textContent = 'No file selected';
-            return;
-        }
-
-        fileStatus.textContent = `Loading: ${file.name}`;
-
-        const reader = new FileReader();
-        reader.onload = function (e) {
-            try {
-                data = parseCSV(e.target.result);
-
-                // Prepare hash cache for faster comparison
-                prepareHashCache(data);
-
-                // Initialize Fuse with all data initially
-                fuse = initFuse(data);
-
-                fileStatus.textContent = `Załadowano ${data.length} uczestników z ${file.name}`;
-
-                // Update display based on filter setting
-                displayFilteredResults();
-
-                checkVolunteerID();
-            } catch (error) {
-                fileStatus.textContent = `Error: ${error.message}`;
-                console.error(error);
-            }
-        };
-
-        reader.onerror = function () {
-            fileStatus.textContent = 'Error reading file';
-        };
-
-        reader.readAsText(file);
-    });
 
     // Cache for storing pre-computed hashes
     const hashCache = new Map();
@@ -470,32 +497,6 @@
 
         performSearch(query);
     });
-
-    function checkVolunteerID() {
-        const hasVolunteerID = volunteerIDInput.value.trim() !== '';
-
-        if (data.length > 0) { // Only enable if we have data loaded
-            searchInput.disabled = !hasVolunteerID;
-
-            if (!hasVolunteerID) {
-                searchStatus.textContent = 'Wprowadź ID wolontariusza aby rozpocząć wyszukiwanie';
-                // Clear search results if volunteer ID is removed after searching
-                if (searchInput.value) {
-                    clearSearch();
-                }
-                // Ensure setup details are open if volunteerID is missing
-                reopenSetupIfNeeded();
-            } else {
-                const filteredData = getFilteredData();
-                const filterText = !filterRegisteredCheckbox.checked ?
-                    " (bez zarejestrowanych)" : "";
-                searchStatus.textContent = `${filteredData.length} uczestników załadowanych${filterText}.`;
-            }
-        }
-    }
-
-    volunteerIDInput.addEventListener('input', checkVolunteerID);
-    volunteerIDInput.addEventListener('change', checkVolunteerID);
 
     function performSearch(query) {
         // Get filtered data based on checkbox state
@@ -612,24 +613,25 @@
             const div = document.createElement('div');
             div.className = 'result-item';
             div.dataset.index = index;
+            div.style.display = 'flex';
+            div.style.justifyContent = 'space-between';
+            div.style.alignItems = 'center';
+
+            const contentDiv = document.createElement('div');
+            contentDiv.style.flexGrow = '1';
 
             const matchInfo = matchDetails.get(item);
             let content = item.value; // Display the original value
 
             if (matchInfo && matchInfo.type === 'sequence') {
                 // Highlight sequence matches
-                // We need to map the positions from normalized text to original text
-                const positions = matchInfo.positions;
-
-                // To ensure we highlight the right characters in the original text,
-                // we need to figure out the correspondence between positions in normalized and original
                 let normalizedPos = 0;
                 let originalPos = 0;
                 let mappedPositions = [];
 
                 // This is a simplified approach - for exact character matching we'd need more complex logic
                 for (let i = 0; i < item.normalizedValue.length; i++) {
-                    if (positions.includes(i)) {
+                    if (matchInfo.positions.includes(i)) {
                         mappedPositions.push(originalPos);
                     }
                     originalPos++;
@@ -651,34 +653,22 @@
                 }
 
                 html += escapeHTML(content.substring(lastPos));
-                div.innerHTML = html;
+                contentDiv.innerHTML = html;
 
-                // Add match info
-                const infoDiv = document.createElement('div');
-                infoDiv.className = 'match-info';
-                // Remove spaces from query for display to match the actual search logic
-                const displayQuery = query.replace(/\s+/g, '');
-                infoDiv.textContent = `Letter sequence match: '${displayQuery}'`;
-                div.appendChild(infoDiv);
-            } else if (matchInfo && matchInfo.type === 'fuzzy') {
-                // For fuzzy matches, do a simple highlight of the query parts
-                div.textContent = content;
-
-                // Add match info
-                const infoDiv = document.createElement('div');
-                infoDiv.className = 'match-info';
-                infoDiv.textContent = `Fuzzy match (score: ${Math.round((1 - matchInfo.score) * 100)}%)`;
-                div.appendChild(infoDiv);
+                // No letter sequence match text displayed
             } else {
-                div.textContent = content;
+                contentDiv.textContent = content;
             }
+
+            div.appendChild(contentDiv);
 
             // Add indicator for registered items
             if (isItemRegistered(item)) {
                 const registeredDiv = document.createElement('div');
-                registeredDiv.className = 'match-info';
-                registeredDiv.textContent = 'Już zarejestrowany/a';
+                registeredDiv.style.fontSize = '0.8em';
                 registeredDiv.style.color = '#f44336';
+                registeredDiv.style.marginLeft = '10px';
+                registeredDiv.textContent = 'Już zarejestrowany/a';
                 div.appendChild(registeredDiv);
             }
 
@@ -736,21 +726,6 @@
     }
 
     async function selectItem(item) {
-        const volunteerID = document.getElementById('volunteerID').value;
-
-        if (!volunteerID) {
-            showToast('Wprowadź ID wolontariusza aby zarejestrować uczestnika', 'error');
-            reopenSetupIfNeeded();
-            return;
-        }
-
-        // Check if item is already registered
-        if (isItemRegistered(item)) {
-            showToast('Ten uczestnik jest już zarejestrowany', 'error');
-            return;
-        }
-
-        // Get hash from cache or calculate it
         let hashedEntry;
         if (hashCache.has(item.value)) {
             hashedEntry = hashCache.get(item.value);
@@ -759,9 +734,12 @@
             hashCache.set(item.value, hashedEntry);
         }
 
+        const registrationPlace = localStorage.getItem('registrationPlace');
+
         const entry = {
             volunteerID: volunteerID,
-            entry: hashedEntry,
+            participantHash: hashedEntry,
+            registrationPlace: registrationPlace
         };
 
         try {
@@ -814,7 +792,7 @@
 
     // Utility functions
     function escapeRegExp(string) {
-        return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        return string.replace(/[.*+?^${}()|[\]\\]/g, '\\                // This is a simplified approach - for exact character matching we');
     }
 
     function escapeHTML(str) {
@@ -826,10 +804,15 @@
             .replace(/'/g, '&#039;');
     }
 
-    // Fetch entries initially and set up auto-refresh
+    // Initialize and fetch entries
     window.onload = function () {
-        fetchRegisteredEntries(); // Initial load
-        setInterval(fetchRegisteredEntries, 1000);
+        // First check if settings exist
+        if (checkSettings()) {
+            // If settings exist, fetch entries
+            fetchRegisteredEntries();
+            // Set up auto-refresh for entries
+            setInterval(fetchRegisteredEntries, 1000);
+        }
     };
 </script>
 </body>
