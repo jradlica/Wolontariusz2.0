@@ -8,6 +8,7 @@ from datetime import datetime
 import pytz
 import bcrypt
 import secrets
+from functools import lru_cache
 
 app = FastAPI()
 security = HTTPBasic()
@@ -15,11 +16,27 @@ security = HTTPBasic()
 # Define the Polish timezone
 polish_tz = pytz.timezone('Europe/Warsaw')
 
-# Define a simple username and hashed password
+# Define a simple username and hashed password with reduced rounds for faster verification
 USERNAME = "BFF2025"
-HASHED_PASSWORD = b"$2a$12$43fGmfMVH8PhYOHtlb7h5egn8QwrBO0CmglGmgLugCLPf0Y/LGNVW"
+HASHED_PASSWORD = b"$2b$04$G/pw9saE0cmdW1Ap8p32dO.XjEuiJMS.BWtmQx1xNji3Coem54QaK"
+
+# HTML content cache
+html_cache = {}
+
+def get_html_content(file_path):
+    """Get HTML content from cache or read from file if not cached"""
+    if file_path not in html_cache:
+        with open(file_path, "r") as file:
+            html_cache[file_path] = file.read()
+    return html_cache[file_path]
+
+@lru_cache(maxsize=128)
+def cached_check_password(password_str):
+    """Cache password verification results for better performance"""
+    return bcrypt.checkpw(password_str.encode(), HASHED_PASSWORD)
 
 def verify_credentials(credentials: HTTPBasicCredentials):
+    # Fast username check first (fails fast if username is wrong)
     correct_username = secrets.compare_digest(credentials.username, USERNAME)
     if not correct_username:
         raise HTTPException(
@@ -28,8 +45,8 @@ def verify_credentials(credentials: HTTPBasicCredentials):
             headers={"WWW-Authenticate": "Basic"},
         )
 
-    # Verify the hashed password
-    if not bcrypt.checkpw(credentials.password.encode(), HASHED_PASSWORD):
+    # Use cached password verification
+    if not cached_check_password(credentials.password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
@@ -93,49 +110,37 @@ def list_unique_entries(registrationPlace: Optional[str] = Query(None), credenti
 @app.get("/registration", response_class=HTMLResponse)
 def get_register(credentials: HTTPBasicCredentials = Depends(security)):
     verify_credentials(credentials)
-    # Read the content of register.html
-    with open("/app/static/registration.html", "r") as file:
-        html_content = file.read()
+    html_content = get_html_content("/app/static/registration.html")
     return HTMLResponse(content=html_content, status_code=200)
 
 @app.get("/status", response_class=HTMLResponse)
-def get_status(credentials: HTTPBasicCredentials = Depends(security)):
+def get_status_page(credentials: HTTPBasicCredentials = Depends(security)):
     verify_credentials(credentials)
-    # Read the content of status.html
-    with open("/app/static/status.html", "r") as file:
-        html_content = file.read()
+    html_content = get_html_content("/app/static/status.html")
     return HTMLResponse(content=html_content, status_code=200)
 
 @app.get("/index", response_class=HTMLResponse)
-def get_status(credentials: HTTPBasicCredentials = Depends(security)):
+def get_index(credentials: HTTPBasicCredentials = Depends(security)):
     verify_credentials(credentials)
-    # Read the content of status.html
-    with open("/app/static/index.html", "r") as file:
-        html_content = file.read()
+    html_content = get_html_content("/app/static/index.html")
     return HTMLResponse(content=html_content, status_code=200)
 
 @app.get("/settings", response_class=HTMLResponse)
-def get_status(credentials: HTTPBasicCredentials = Depends(security)):
+def get_settings(credentials: HTTPBasicCredentials = Depends(security)):
     verify_credentials(credentials)
-    # Read the content of status.html
-    with open("/app/static/settings.html", "r") as file:
-        html_content = file.read()
+    html_content = get_html_content("/app/static/settings.html")
     return HTMLResponse(content=html_content, status_code=200)
 
 @app.get("/stats", response_class=HTMLResponse)
-def get_status(credentials: HTTPBasicCredentials = Depends(security)):
+def get_stats(credentials: HTTPBasicCredentials = Depends(security)):
     verify_credentials(credentials)
-    # Read the content of status.html
-    with open("/app/static/stats.html", "r") as file:
-        html_content = file.read()
+    html_content = get_html_content("/app/static/stats.html")
     return HTMLResponse(content=html_content, status_code=200)
 
 @app.get("/info", response_class=HTMLResponse)
-def get_status(credentials: HTTPBasicCredentials = Depends(security)):
+def get_info(credentials: HTTPBasicCredentials = Depends(security)):
     verify_credentials(credentials)
-    # Read the content of status.html
-    with open("/app/static/info.html", "r") as file:
-        html_content = file.read()
+    html_content = get_html_content("/app/static/info.html")
     return HTMLResponse(content=html_content, status_code=200)
 
 @app.get("/pepe.ico")

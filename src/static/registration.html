@@ -58,6 +58,7 @@
             padding: 8px;
             border-bottom: 1px solid #eee;
             transition: background-color 0.2s;
+            cursor:pointer;
         }
 
         .result-item:last-child {
@@ -384,51 +385,24 @@
 
             // Store previous length to detect changes
             const previousLength = registeredEntries.length;
+            const prevHashes = new Set(registeredHashes);
 
+            // Update registered entries
             registeredEntries = data.entries;
             registeredHashes = new Set(registeredEntries.map(entry => entry.participantHash));
             registeredCountElement.textContent = `Zarejestrowanych uczestników: ${registeredEntries.length}`;
 
-            // Only update the display if there's been a change in the registered entries
-            // or if this is the initial load
-            if (previousLength !== registeredEntries.length) {
-                // If the search input has a value, reapply the search to update results
+            // Check if there's been a change in the registered entries
+            const hasChanges = previousLength !== registeredEntries.length ||
+                [...registeredHashes].some(hash => !prevHashes.has(hash));
+
+            if (hasChanges) {
+                // If search is active, reapply the search
                 if (searchInput.value.trim()) {
-                    // Save the current selection index before updating
-                    const currentSelectedItem = selectedIndex >= 0 && filteredResults.length > selectedIndex ?
-                        filteredResults[selectedIndex] : null;
-
                     performSearch(searchInput.value.trim());
-
-                    // After updating the results, try to restore the selected item
-                    if (currentSelectedItem) {
-                        const newIndex = filteredResults.findIndex(item =>
-                            item.value === currentSelectedItem.value
-                        );
-                        if (newIndex !== -1) {
-                            selectedIndex = newIndex;
-                            const resultElements = resultsContainer.querySelectorAll('.result-item');
-                            updateSelection(resultElements);
-                        }
-                    }
-                } else if (data.length > 0) {
-                    // Otherwise update the display to show filtered or all results
-                    // Save current selection before updating
-                    const currentSelectedValue = selectedIndex >= 0 ?
-                        (filteredResults.length ? filteredResults[selectedIndex].value : null) : null;
-
+                } else {
+                    // Otherwise update the display with filtered results
                     displayFilteredResults();
-
-                    // Restore selection if possible
-                    if (currentSelectedValue) {
-                        const newDisplayedItems = getFilteredData();
-                        const newIndex = newDisplayedItems.findIndex(item => item.value === currentSelectedValue);
-                        if (newIndex !== -1) {
-                            selectedIndex = newIndex;
-                            const resultElements = resultsContainer.querySelectorAll('.result-item');
-                            updateSelection(resultElements);
-                        }
-                    }
                 }
             }
 
@@ -439,6 +413,7 @@
             return [];
         }
     }
+
     // Filter data based on registered entries
     function getFilteredData() {
         if (!filterRegisteredCheckbox.checked && registeredHashes.size > 0) {
@@ -469,6 +444,8 @@
     function displayFilteredResults() {
         const filteredData = getFilteredData();
         displayResults(filteredData);
+
+        selectedIndex = -1;
 
         const filterText = !filterRegisteredCheckbox.checked ?
             " (bez zarejestrowanych)" : "";
@@ -708,10 +685,17 @@
         }
     });
 
+    function focusSearchInput() {
+        if (!searchInput.disabled) {
+            searchInput.focus();
+        }
+    }
+
     function clearSearch() {
         searchInput.value = '';
         displayFilteredResults();
         selectedIndex = -1;
+        focusSearchInput()
     }
 
     function updateSelection(elements) {
@@ -757,18 +741,26 @@
                 // Add entry to local registered set
                 registeredHashes.add(hashedEntry);
 
-                // Update displayed results
-                clearSearch();
-
                 // Refresh registered entries from server
                 await fetchRegisteredEntries();
+
+                // Clear search and refresh display AFTER registration data is updated
+                clearSearch();
+
+                // Force display update with current filter settings
+                displayFilteredResults();
+
+                // Return focus to search input
+                focusSearchInput();
             } else {
                 const errorData = await response.json();
                 showToast(`Napotkano błąd: ${errorData.detail}`, 'error');
+                focusSearchInput();
             }
         } catch (error) {
-            console.log(error)
+            console.log(error);
             showToast('Napotkano nieznany błąd XD', 'error');
+            focusSearchInput();
         }
     }
 
@@ -792,7 +784,7 @@
 
     // Utility functions
     function escapeRegExp(string) {
-        return string.replace(/[.*+?^${}()|[\]\\]/g, '\\                // This is a simplified approach - for exact character matching we');
+        return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
 
     function escapeHTML(str) {
@@ -812,6 +804,7 @@
             fetchRegisteredEntries();
             // Set up auto-refresh for entries
             setInterval(fetchRegisteredEntries, 1000);
+            focusSearchInput();
         }
     };
 </script>
