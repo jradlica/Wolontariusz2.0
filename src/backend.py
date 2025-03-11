@@ -3,12 +3,13 @@ from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import BaseModel, Field
 from typing import List, Dict, Optional
-from queue import Queue
 from datetime import datetime
 import pytz
 import bcrypt
 import secrets
 from functools import lru_cache
+import sqlite3
+import os
 
 app = FastAPI()
 security = HTTPBasic()
@@ -22,6 +23,29 @@ HASHED_PASSWORD = b"$2b$04$G/pw9saE0cmdW1Ap8p32dO.XjEuiJMS.BWtmQx1xNji3Coem54QaK
 
 # HTML content cache
 html_cache = {}
+
+# Define database path and ensure directory exists
+DB_PATH = "/app/data/entries.db"
+os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+
+# Initialize database
+def init_db():
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS entries (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        volunteerID TEXT NOT NULL,
+        participantHash TEXT NOT NULL,
+        registrationPlace TEXT NOT NULL,
+        timestamp TEXT NOT NULL
+    )
+    ''')
+    conn.commit()
+    conn.close()
+
+# Call init_db at startup
+init_db()
 
 def get_html_content(file_path):
     """Get HTML content from cache or read from file if not cached"""
@@ -59,53 +83,92 @@ class Entry(BaseModel):
     registrationPlace: str
     timestamp: Optional[str] = Field(default=None)
 
-# Thread-safe queue for entries
-entries_queue = Queue()
-
 @app.post("/entry")
 def modify_entry(entry: Entry, credentials: HTTPBasicCredentials = Depends(security)):
     verify_credentials(credentials)
     entry.timestamp = datetime.now(polish_tz).isoformat()
-    entries_queue.put(entry.dict())
+
+    # Save entry to database
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO entries (volunteerID, participantHash, registrationPlace, timestamp) VALUES (?, ?, ?, ?)",
+        (entry.volunteerID, entry.participantHash, entry.registrationPlace, entry.timestamp)
+    )
+    conn.commit()
+    conn.close()
+
     return {"message": "Entry added successfully"}
 
 @app.get("/entries")
 def list_entries(registrationPlace: Optional[str] = Query(None), credentials: HTTPBasicCredentials = Depends(security)):
     verify_credentials(credentials)
-    entries_list = list(entries_queue.queue)
 
-    # Filter entries by registrationPlace if the parameter is provided
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row  # This enables column access by name
+    cursor = conn.cursor()
+
     if registrationPlace:
-        entries_list = [entry for entry in entries_list if entry['registrationPlace'] == registrationPlace]
+        cursor.execute("SELECT * FROM entries WHERE registrationPlace = ?", (registrationPlace,))
+    else:
+        cursor.execute("SELECT * FROM entries")
 
+    rows = cursor.fetchall()
+    entries_list = []
+
+    for row in rows:
+        entries_list.append({
+            "volunteerID": row["volunteerID"],
+            "participantHash": row["participantHash"],
+            "registrationPlace": row["registrationPlace"],
+            "timestamp": row["timestamp"]
+        })
+
+    conn.close()
     return {"entries": entries_list}
 
 @app.get("/unique-entries")
 def list_unique_entries(registrationPlace: Optional[str] = Query(None), credentials: HTTPBasicCredentials = Depends(security)):
     verify_credentials(credentials)
-    entries_list = list(entries_queue.queue)
 
-    # Filter entries by registrationPlace if the parameter is provided
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    # SQL query to get the latest entry for each unique participantHash
+    query = """
+    SELECT e.*
+    FROM entries e
+    INNER JOIN (
+        SELECT participantHash, MAX(timestamp) as max_timestamp
+        FROM entries
+        {}
+        GROUP BY participantHash
+    ) latest ON e.participantHash = latest.participantHash AND e.timestamp = latest.max_timestamp
+    ORDER BY e.timestamp DESC
+    """
+
     if registrationPlace:
-        entries_list = [entry for entry in entries_list if entry['registrationPlace'] == registrationPlace]
+        where_clause = "WHERE registrationPlace = ?"
+        formatted_query = query.format(where_clause)
+        cursor.execute(formatted_query, (registrationPlace,))
+    else:
+        formatted_query = query.format("")
+        cursor.execute(formatted_query)
 
-    # Dictionary to store the latest entry for each unique participant hash
-    unique_entries = {}
+    rows = cursor.fetchall()
+    entries_list = []
 
-    # Process entries in chronological order (older to newer)
-    for entry in entries_list:
-        participant_hash = entry['participantHash']
-        # Always update the entry in the dictionary,
-        # which will ensure we keep the most recent one
-        unique_entries[participant_hash] = entry
+    for row in rows:
+        entries_list.append({
+            "volunteerID": row["volunteerID"],
+            "participantHash": row["participantHash"],
+            "registrationPlace": row["registrationPlace"],
+            "timestamp": row["timestamp"]
+        })
 
-    # Convert back to list (values of the dictionary)
-    deduplicated_entries = list(unique_entries.values())
-
-    # Sort by timestamp (newest first)
-    deduplicated_entries.sort(key=lambda x: x['timestamp'], reverse=True)
-
-    return {"entries": deduplicated_entries}
+    conn.close()
+    return {"entries": entries_list}
 
 @app.get("/registration", response_class=HTMLResponse)
 def get_register(credentials: HTTPBasicCredentials = Depends(security)):

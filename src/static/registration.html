@@ -589,7 +589,8 @@
         items.forEach((item, index) => {
             const div = document.createElement('div');
             div.className = 'result-item';
-            div.dataset.index = index;
+            // Store the actual item data as a data attribute instead of just the index
+            div.dataset.value = item.value;
             div.style.display = 'flex';
             div.style.justifyContent = 'space-between';
             div.style.alignItems = 'center';
@@ -650,7 +651,11 @@
             }
 
             div.addEventListener('click', () => {
-                selectItem(item);
+                // Find the item by value, not by index
+                const itemToSelect = findItemByValue(item.value);
+                if (itemToSelect) {
+                    selectItem(itemToSelect);
+                }
             });
 
             fragment.appendChild(div);
@@ -660,25 +665,38 @@
         resultsContainer.appendChild(fragment);
     }
 
+    // Helper function to find an item by its value
+    function findItemByValue(value) {
+        return data.find(item => item.value === value);
+    }
+
     // Keyboard navigation
     document.addEventListener('keydown', function (e) {
         if (!filteredResults.length && !data.length) return;
 
-        const displayedItems = filteredResults.length ? filteredResults : getFilteredData();
         const resultElements = resultsContainer.querySelectorAll('.result-item');
 
         // Handle arrow keys for navigation
         if (e.key === 'ArrowDown') {
             e.preventDefault();
-            selectedIndex = Math.min(selectedIndex + 1, displayedItems.length - 1);
+            selectedIndex = Math.min(selectedIndex + 1, filteredResults.length - 1);
             updateSelection(resultElements);
         } else if (e.key === 'ArrowUp') {
             e.preventDefault();
             selectedIndex = Math.max(selectedIndex - 1, 0);
             updateSelection(resultElements);
-        } else if (e.key === 'Enter' && selectedIndex >= 0) {
+        } else if (e.key === 'Enter' && selectedIndex >= 0 && selectedIndex < resultElements.length) {
             e.preventDefault();
-            selectItem(displayedItems[selectedIndex]);
+
+            // Get the selected element's value from the data attribute
+            const selectedValue = resultElements[selectedIndex].dataset.value;
+
+            // Find the corresponding item object using the value
+            const selectedItem = findItemByValue(selectedValue);
+
+            if (selectedItem) {
+                selectItem(selectedItem);
+            }
         } else if (e.key === 'Escape') {
             e.preventDefault();
             clearSearch();
@@ -803,7 +821,7 @@
             // If settings exist, fetch entries
             fetchRegisteredEntries();
             // Set up auto-refresh for entries
-            setInterval(fetchRegisteredEntries, 1000);
+            setInterval(fetchRegisteredEntries, 5000);
             focusSearchInput();
         }
     };

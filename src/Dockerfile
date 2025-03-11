@@ -6,7 +6,6 @@ WORKDIR /app
 
 # Install any dependencies
 RUN pip install --no-cache-dir fastapi uvicorn pytz bcrypt
-
 # Copy the backend.py file
 COPY backend.py /app/
 
