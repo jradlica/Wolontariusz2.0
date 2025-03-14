@@ -8,8 +8,15 @@ import pytz
 import bcrypt
 import secrets
 from functools import lru_cache
-import sqlite3
-import os
+import threading
+import logging
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger("bff-app")
 
 app = FastAPI()
 security = HTTPBasic()
@@ -24,28 +31,93 @@ HASHED_PASSWORD = b"$2b$04$G/pw9saE0cmdW1Ap8p32dO.XjEuiJMS.BWtmQx1xNji3Coem54QaK
 # HTML content cache
 html_cache = {}
 
-# Define database path and ensure directory exists
-DB_PATH = "/app/data/entries.db"
-os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+# In-memory data structures with copy-on-write strategy
+class InMemoryDB:
+    def __init__(self):
+        # Main list of all entries - no need for copy during reads
+        self._entries = []
 
-# Initialize database
-def init_db():
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute('''
-    CREATE TABLE IF NOT EXISTS entries (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        volunteerID TEXT NOT NULL,
-        participantHash TEXT NOT NULL,
-        registrationPlace TEXT NOT NULL,
-        timestamp TEXT NOT NULL
-    )
-    ''')
-    conn.commit()
-    conn.close()
+        # Dictionary for fast lookup of latest entries by participantHash
+        self._unique_entries = {}
 
-# Call init_db at startup
-init_db()
+        # Pre-computed filtered entries by place
+        self._entries_by_place = {}
+
+        # Pre-computed filtered unique entries by place
+        self._unique_entries_by_place = {}
+
+        # Lock only used during writes
+        self.write_lock = threading.Lock()
+
+    def add_entry(self, entry):
+        with self.write_lock:
+            # Create full entry
+            full_entry = {
+                "volunteerID": entry.volunteerID,
+                "participantHash": entry.participantHash,
+                "registrationPlace": entry.registrationPlace,
+                "timestamp": entry.timestamp
+            }
+
+            # Add to main entries list
+            self._entries.append(full_entry)
+
+            # Update unique entries dictionary with latest entry
+            self._unique_entries[entry.participantHash] = full_entry
+
+            # Clear all caches after adding a new entry
+            self._entries_by_place = {}
+            self._unique_entries_by_place = {}
+
+            return full_entry
+
+    def get_all_entries(self):
+        # No lock needed for read operations
+        # Return sorted entries (newest first)
+        # No need to make a copy since we never modify existing entries
+        return sorted(self._entries, key=lambda x: x["timestamp"], reverse=True)
+
+    def get_entries_by_place(self, place):
+        # Try to get from cache first
+        entries_by_place = self._entries_by_place  # Take a local reference to avoid race conditions
+        if place in entries_by_place:
+            return entries_by_place[place]  # Return cached result if available
+
+        # Not in cache, compute and store
+        filtered = [entry for entry in self._entries if entry["registrationPlace"] == place]
+        sorted_entries = sorted(filtered, key=lambda x: x["timestamp"], reverse=True)
+
+        # Store in cache - no lock needed as we're only adding to a dict
+        # If another thread already added this, it's fine
+        self._entries_by_place[place] = sorted_entries
+
+        return sorted_entries
+
+    def get_unique_entries(self):
+        # No lock needed - the dictionary values are never modified
+        # Return sorted unique entries (newest first)
+        return sorted(list(self._unique_entries.values()), key=lambda x: x["timestamp"], reverse=True)
+
+    def get_unique_entries_by_place(self, place):
+        # Try to get from cache first
+        unique_entries_by_place = self._unique_entries_by_place  # Take a local reference
+        if place in unique_entries_by_place:
+            return unique_entries_by_place[place]  # Return cached result if available
+
+        # Not in cache, compute and store
+        filtered = [
+            entry for entry in self._unique_entries.values()
+            if entry["registrationPlace"] == place
+        ]
+        sorted_entries = sorted(filtered, key=lambda x: x["timestamp"], reverse=True)
+
+        # Store in cache - no lock needed as we're only adding to a dict
+        self._unique_entries_by_place[place] = sorted_entries
+
+        return sorted_entries
+
+# Create the in-memory database
+db = InMemoryDB()
 
 def get_html_content(file_path):
     """Get HTML content from cache or read from file if not cached"""
@@ -86,17 +158,15 @@ class Entry(BaseModel):
 @app.post("/entry")
 def modify_entry(entry: Entry, credentials: HTTPBasicCredentials = Depends(security)):
     verify_credentials(credentials)
-    entry.timestamp = datetime.now(polish_tz).isoformat()
 
-    # Save entry to database
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute(
-        "INSERT INTO entries (volunteerID, participantHash, registrationPlace, timestamp) VALUES (?, ?, ?, ?)",
-        (entry.volunteerID, entry.participantHash, entry.registrationPlace, entry.timestamp)
-    )
-    conn.commit()
-    conn.close()
+    # Set timestamp if not provided
+    if not entry.timestamp:
+        entry.timestamp = datetime.now(polish_tz).isoformat()
+
+    # Add entry to in-memory database
+    db.add_entry(entry)
+
+    logger.info(f"New entry added: participantHash={entry.participantHash}, place={entry.registrationPlace}")
 
     return {"message": "Entry added successfully"}
 
@@ -104,70 +174,26 @@ def modify_entry(entry: Entry, credentials: HTTPBasicCredentials = Depends(secur
 def list_entries(registrationPlace: Optional[str] = Query(None), credentials: HTTPBasicCredentials = Depends(security)):
     verify_credentials(credentials)
 
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row  # This enables column access by name
-    cursor = conn.cursor()
-
     if registrationPlace:
-        cursor.execute("SELECT * FROM entries WHERE registrationPlace = ?", (registrationPlace,))
+        entries_list = db.get_entries_by_place(registrationPlace)
+        logger.info(f"Retrieved {len(entries_list)} entries for place: {registrationPlace}")
     else:
-        cursor.execute("SELECT * FROM entries")
+        entries_list = db.get_all_entries()
+        logger.info(f"Retrieved all {len(entries_list)} entries")
 
-    rows = cursor.fetchall()
-    entries_list = []
-
-    for row in rows:
-        entries_list.append({
-            "volunteerID": row["volunteerID"],
-            "participantHash": row["participantHash"],
-            "registrationPlace": row["registrationPlace"],
-            "timestamp": row["timestamp"]
-        })
-
-    conn.close()
     return {"entries": entries_list}
 
 @app.get("/unique-entries")
 def list_unique_entries(registrationPlace: Optional[str] = Query(None), credentials: HTTPBasicCredentials = Depends(security)):
     verify_credentials(credentials)
 
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-
-    # SQL query to get the latest entry for each unique participantHash
-    query = """
-    SELECT e.*
-    FROM entries e
-    INNER JOIN (
-        SELECT participantHash, MAX(timestamp) as max_timestamp
-        FROM entries
-        {}
-        GROUP BY participantHash
-    ) latest ON e.participantHash = latest.participantHash AND e.timestamp = latest.max_timestamp
-    ORDER BY e.timestamp DESC
-    """
-
     if registrationPlace:
-        where_clause = "WHERE registrationPlace = ?"
-        formatted_query = query.format(where_clause)
-        cursor.execute(formatted_query, (registrationPlace,))
+        entries_list = db.get_unique_entries_by_place(registrationPlace)
+        logger.info(f"Retrieved {len(entries_list)} unique entries for place: {registrationPlace}")
     else:
-        formatted_query = query.format("")
-        cursor.execute(formatted_query)
+        entries_list = db.get_unique_entries()
+        logger.info(f"Retrieved all {len(entries_list)} unique entries")
 
-    rows = cursor.fetchall()
-    entries_list = []
-
-    for row in rows:
-        entries_list.append({
-            "volunteerID": row["volunteerID"],
-            "participantHash": row["participantHash"],
-            "registrationPlace": row["registrationPlace"],
-            "timestamp": row["timestamp"]
-        })
-
-    conn.close()
     return {"entries": entries_list}
 
 @app.get("/registration", response_class=HTMLResponse)
@@ -211,6 +237,12 @@ def get_icon(credentials: HTTPBasicCredentials = Depends(security)):
     verify_credentials(credentials)
     # Return the .ico file using FileResponse
     return FileResponse(path="/app/static/pepe.ico", media_type="image/x-icon")
+
+# Add startup event handler to log "Hello world"
+@app.on_event("startup")
+async def startup_event():
+    logger.info("Hello world")
+    logger.info("Application started successfully")
 
 if __name__ == "__main__":
     import uvicorn

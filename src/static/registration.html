@@ -288,10 +288,11 @@
     function initFuse(items) {
         return new Fuse(items, {
             includeScore: true,
-            threshold: 0.4,
+            threshold: 0,
             ignoreLocation: true,
             keys: ['normalizedValue'],
-            useExtendedSearch: true
+            useExtendedSearch: true,
+            tokenize: true
         });
     }
 
